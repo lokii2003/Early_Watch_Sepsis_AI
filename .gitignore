@@ -18,6 +18,7 @@ live_data/
 # Env
 .env
 venv/
+env/
 
 # Model
 *.ipynb
