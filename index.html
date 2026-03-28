@@ -574,7 +574,11 @@ async function fetchPatients() {
     console.log("Fetching from:", API);
 
     const res = await fetch(API + "/api/patients");
-    const data = await res.json();
+
+    const json = await res.json();
+    const data = json.patients || [];   // ✅ safe
+
+    
 
     console.log("DATA:", data);
 
