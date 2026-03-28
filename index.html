@@ -562,7 +562,10 @@ var eventLog      = [];
 var loggedKeys    = {};
 var renderedPids  = [];
 var statusCnt     = 0;
-
+//fetch
+fetchPatients();
+setInterval(fetchPatients, REFRESH);
+requestAnimationFrame(animLoop);
 // ═══════════════════════════════════════════════════
 // SOUND
 // ═══════════════════════════════════════════════════
