@@ -12,6 +12,7 @@ artifacts/
 # Python
 __pycache__/
 .vscode/
+live_data/
 *.pyc
 
 # Env
@@ -22,3 +23,8 @@ venv/
 *.ipynb
 *.png
 
+live_data/
+*.json
+*.csv
+*.pkl
+*.h5
