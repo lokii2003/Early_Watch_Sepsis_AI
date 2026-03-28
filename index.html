@@ -562,10 +562,53 @@ var eventLog      = [];
 var loggedKeys    = {};
 var renderedPids  = [];
 var statusCnt     = 0;
-//fetch
+// ... ALL YOUR EXISTING CODE (DO NOT TOUCH)
+
+
+// ═══════════════════════════════════════════════════
+// 🔥 API FETCH + AUTO REFRESH (FINAL FIX)
+// ═══════════════════════════════════════════════════
+
+async function fetchPatients() {
+  try {
+    console.log("Fetching from:", API);
+
+    const res = await fetch(API + "/api/patients");
+    const data = await res.json();
+
+    console.log("DATA:", data);
+
+    allPatients = data;
+
+    if (renderedPids.length === 0) {
+      buildCards(data);
+      renderedPids = data.map(p => p.pid);
+    } else {
+      updateCards(data);
+    }
+
+    updateBanner(data);
+
+    document.getElementById("sl-pts").textContent = data.length + " patients";
+    document.getElementById("sd-srv").className = "sdot dok";
+
+  } catch (err) {
+    console.error("ERROR:", err);
+
+    document.getElementById("cards-grid").innerHTML =
+      "<div style='color:#ff4040;padding:16px;font-family:var(--mono);font-size:.76rem;'>Server offline</div>";
+
+    document.getElementById("sd-srv").className = "sdot derr";
+  }
+}
+
+// 🚀 START SYSTEM
 fetchPatients();
 setInterval(fetchPatients, REFRESH);
+
+// Start ECG animation
 requestAnimationFrame(animLoop);
+
 // ═══════════════════════════════════════════════════
 // SOUND
 // ═══════════════════════════════════════════════════
