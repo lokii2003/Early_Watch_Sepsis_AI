@@ -346,7 +346,7 @@ table.lt tr.eMODERATE td{background:#1a1200;color:#ffdd88;}
   <div class="slbl">LIVE PATIENT MONITORS — click any patient for early prediction detail</div>
   <div class="cards" id="cards-grid">
     <div style="color:var(--mut);padding:16px;font-family:var(--mono);font-size:.76rem;">
-      Connecting to http://localhost:5000 ...
+      Connecting to server...
     </div>
   </div>
 
@@ -519,7 +519,7 @@ table.lt tr.eMODERATE td{background:#1a1200;color:#ffdd88;}
 // ═══════════════════════════════════════════════════
 // CONFIG
 // ═══════════════════════════════════════════════════
-var API    = "http://localhost:5000";
+var API = window.location.origin;
 var REFRESH= 1000;
 var ECG_LEN= 200;
 
@@ -1235,7 +1235,7 @@ async function poll(){
     if(renderedPids.length===0)
       document.getElementById("cards-grid").innerHTML=
         "<div style='color:#ff4040;padding:16px;font-family:var(--mono);font-size:.76rem;'>"+
-        "Server offline — run: uvicorn fastapi_server:app --host 0.0.0.0 --port 5000</div>";}}
+        "⚠️ Server offline — check backend";}}
 
 // ═══════════════════════════════════════════════════
 // BOOT
