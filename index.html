@@ -573,7 +573,7 @@ async function fetchPatients() {
   try {
     console.log("Fetching from:", API);
 
-    const res = await fetch(API + "/api/patients");
+    const res = await fetch(API + "/patients");
     const data = await res.json();
 
     console.log("DATA:", data);

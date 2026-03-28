@@ -304,7 +304,7 @@ async def index():
         with open(p,"r",encoding="utf-8") as f: return HTMLResponse(content=f.read())
     return HTMLResponse("<h2>index.html not found</h2>",status_code=404)
 
-@app.get("/health")
+@app.get("/api/health")
 async def health():
     return {"status":"ok","version":"2.0"}
 

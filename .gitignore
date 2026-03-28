@@ -2,9 +2,7 @@
 data/
 artifacts/
 
-# Models
-*.pkl
-*.h5
+
 
 # Logs
 *.log
@@ -12,7 +10,7 @@ artifacts/
 # Python
 __pycache__/
 .vscode/
-live_data/
+
 *.pyc
 
 # Env
@@ -24,8 +22,8 @@ env/
 *.ipynb
 *.png
 
-live_data/
-*.json
+
+
 *.csv
-*.pkl
-*.h5
+
+live_data/
