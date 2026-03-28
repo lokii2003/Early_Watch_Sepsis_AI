@@ -1,0 +1,1259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>ICU Sepsis Monitor</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --bg:#020810;--bg2:#050e1a;--bg3:#071326;--bdr:#0d2035;--bdr2:#1a3a5c;
+  --txt:#c8e6ff;--mut:#3a6080;--dim:#1a3050;
+  --mono:'Share Tech Mono','Courier New',monospace;
+  --sans:'Segoe UI',system-ui,sans-serif;
+  --low:#00ff88;--mod:#ffcc00;--high:#ff4040;--crit:#ff00ff;
+  --hr:#00e5ff;--bp:#ff6b35;--tp:#ff3d71;--sp:#00ff88;--rr:#c77dff;
+  --la:#ffd60a;--wb:#ff9f1c;--ec:#39ff14;
+  --ea:#a78bfa;--ebg:#0d0820;--ebdr:#4c1d95;
+  --r:8px;
+}
+html,body{background:var(--bg);color:var(--txt);font-family:var(--sans);font-size:13px;min-height:100vh;}
+::-webkit-scrollbar{width:4px;height:4px;}
+::-webkit-scrollbar-track{background:var(--bg);}
+::-webkit-scrollbar-thumb{background:var(--bdr2);border-radius:2px;}
+.page{display:none;padding:10px 14px 40px;}
+.page.active{display:block;}
+
+/* HEADER */
+.hdr{display:flex;align-items:center;justify-content:space-between;
+  padding:10px 14px;background:var(--bg2);border:1px solid var(--bdr2);
+  border-radius:var(--r);margin-bottom:10px;}
+.hdr h1{font-family:'Orbitron',monospace;font-size:1.05rem;font-weight:900;
+  color:#00e5ff;letter-spacing:.08em;text-shadow:0 0 10px rgba(0,229,255,.3);}
+.hdr p{font-size:.62rem;color:var(--mut);margin-top:2px;font-family:var(--mono);}
+.hdr-r{display:flex;align-items:center;gap:8px;}
+.live-dot{width:7px;height:7px;border-radius:50%;background:var(--low);
+  display:inline-block;animation:pulse 1.2s infinite;margin-right:4px;}
+.clock{font-family:'Orbitron',monospace;font-size:.72rem;color:#00e5ff;}
+.mbadge{font-family:var(--mono);font-size:.58rem;padding:2px 8px;border-radius:20px;
+  border:1px solid #1a3a5c;color:#00e5ff;background:#071326;}
+
+/* TOOLBAR */
+.toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;}
+.btn{font-family:var(--mono);font-size:.62rem;padding:5px 11px;border-radius:5px;
+  cursor:pointer;transition:all .18s;border:1px solid;white-space:nowrap;}
+.btn-add{background:#003322;color:var(--low);border-color:#00ff8844;}
+.btn-reset{background:#330000;color:#ff4040;border-color:#ff404044;}
+.btn-local{background:var(--bg3);color:var(--mut);border-color:var(--bdr2);}
+.btn-back{background:var(--bg3);color:#00e5ff;border-color:#00e5ff44;}
+.rsb{font-family:var(--mono);font-size:.62rem;padding:4px 10px;border-radius:5px;display:none;}
+.rsb-ok{background:#003322;color:var(--low);border:1px solid #00ff8844;}
+.rsb-err{background:#330000;color:#ff4040;border:1px solid #ff404044;}
+.rsb-wait{background:#1a1200;color:var(--mod);border:1px solid #ffcc0044;}
+
+/* SOUND TOOLBAR */
+.snd-row{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-bottom:8px;}
+.snd-lbl{font-family:var(--mono);font-size:.58rem;color:var(--mut);text-transform:uppercase;
+  letter-spacing:.06em;white-space:nowrap;}
+.snd-file{font-family:var(--mono);font-size:.58rem;color:var(--txt);
+  background:var(--bg3);border:1px solid var(--bdr2);border-radius:5px;padding:3px 7px;cursor:pointer;}
+.snd-url{font-family:var(--mono);font-size:.58rem;color:var(--txt);
+  background:var(--bg3);border:1px solid var(--bdr2);border-radius:5px;
+  padding:3px 8px;width:160px;}
+.snd-url::placeholder{color:var(--mut);}
+.btn-snd{background:var(--bg3);border:1px solid var(--bdr2);color:var(--mut);
+  border-radius:5px;padding:3px 10px;font-size:.58rem;cursor:pointer;font-family:var(--mono);}
+.btn-snd.on{background:#003322;color:var(--low);border-color:#00ff8855;}
+.btn-snd.eon{background:#1a0a30;color:var(--ea);border-color:#4c1d9555;}
+.thr-box{display:flex;align-items:center;gap:5px;padding:3px 10px;
+  border-radius:5px;background:var(--bg3);border:1px solid var(--bdr2);}
+.thr-box .tl{font-family:var(--mono);font-size:.58rem;color:var(--mut);}
+.thr-box input{width:46px;background:transparent;border:none;color:var(--txt);
+  font-family:var(--mono);font-size:.66rem;text-align:center;outline:none;}
+.snd-sep{width:1px;height:18px;background:var(--bdr2);}
+.snd-msg{font-family:var(--mono);font-size:.58rem;color:var(--mut);}
+
+/* SECTION LABEL */
+.slbl{font-family:'Orbitron',monospace;font-size:.54rem;letter-spacing:.14em;
+  color:var(--mut);margin:12px 0 6px;display:flex;align-items:center;gap:8px;}
+.slbl::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,var(--bdr2),transparent);}
+
+/* CRITICAL BANNER */
+#cbanner,#d-cbanner{display:none;border:2px solid var(--crit);border-radius:var(--r);
+  padding:7px 14px;margin-bottom:10px;text-align:center;
+  font-family:'Orbitron',monospace;font-size:.75rem;font-weight:700;color:#ff00ff;
+  background:linear-gradient(90deg,#220033,#330000);animation:critpulse 1s infinite;}
+#cbanner.show,#d-cbanner.show{display:block;}
+
+/* PATIENT CARD (dashboard) */
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:10px;}
+.card{background:var(--bg2);border:1.5px solid var(--bdr2);border-radius:var(--r);
+  padding:0;cursor:pointer;transition:all .22s;position:relative;overflow:hidden;}
+.card:hover{border-color:#00e5ff55;box-shadow:0 0 14px rgba(0,229,255,.12);transform:translateY(-1px);}
+.card.MODERATE{border-color:#ffcc0055;}
+.card.HIGH{border-color:#ff404077;box-shadow:0 0 10px rgba(255,64,64,.18);}
+.card.CRITICAL{border-color:var(--crit);box-shadow:0 0 18px rgba(255,0,255,.3);animation:critpulse 1s infinite;}
+.card-hdr{display:flex;align-items:center;gap:7px;padding:10px 12px 6px;}
+.card-pid{font-family:'Orbitron',monospace;font-size:.62rem;font-weight:700;
+  background:#0d1e32;color:#00e5ff;border:1px solid #1e3d5c;border-radius:5px;padding:2px 7px;}
+.card-name{font-size:.86rem;font-weight:700;}
+.card-meta{font-size:.6rem;color:var(--mut);font-family:var(--mono);}
+.rbadge{font-family:var(--mono);font-size:.58rem;font-weight:700;padding:2px 8px;
+  border-radius:20px;margin-left:auto;white-space:nowrap;}
+.rLOW{background:#003322;color:#00ff88;border:1px solid #00ff8855;}
+.rMODERATE{background:#332200;color:#ffcc00;border:1px solid #ffcc0055;}
+.rHIGH{background:#330000;color:#ff4040;border:1px solid #ff404055;}
+.rCRITICAL{background:#220033;color:#ff00ff;border:1px solid #ff00ff77;animation:blink .8s infinite;}
+.rBUFFERING{background:#0a1220;color:#3a6080;border:1px solid #1a3a5c;}
+.del-btn{position:absolute;top:7px;right:7px;background:#330000;color:#ff4040;
+  border:1px solid #ff404055;border-radius:4px;padding:1px 6px;font-size:.58rem;
+  cursor:pointer;font-family:var(--mono);opacity:0;transition:opacity .2s;z-index:5;}
+.card:hover .del-btn{opacity:1;}
+
+/* ECG on card */
+.ecg-mini{position:relative;height:54px;background:#000;overflow:hidden;margin:0;}
+.ecg-mini::before{content:'';position:absolute;inset:0;pointer-events:none;z-index:0;
+  background:repeating-linear-gradient(0deg,transparent,transparent 8px,#0d2035 8px,#0d2035 9px),
+             repeating-linear-gradient(90deg,transparent,transparent 8px,#0d2035 8px,#0d2035 9px);}
+canvas.ecv{position:relative;z-index:1;width:100%;height:100%;}
+
+/* prob bar */
+.prob-row{display:flex;align-items:center;gap:6px;padding:5px 12px;background:#000;}
+.ptlbl{font-family:var(--mono);font-size:.52rem;color:var(--mut);min-width:60px;text-transform:uppercase;}
+.ptrack{flex:1;height:5px;background:var(--bdr);border-radius:3px;overflow:hidden;}
+.pfill{height:5px;border-radius:3px;transition:width .7s ease;}
+.pnum{font-family:'Orbitron',monospace;font-size:.68rem;font-weight:700;min-width:38px;text-align:right;}
+
+/* vitals grid on card */
+.vgrid{display:grid;grid-template-columns:repeat(9,1fr);gap:2px;padding:4px 6px 6px;background:#000;}
+.vc{background:var(--bg3);border:1px solid var(--bdr);border-radius:4px;padding:3px 1px;text-align:center;}
+.vl{font-size:.44rem;color:var(--mut);text-transform:uppercase;}
+.vv{font-family:var(--mono);font-size:.72rem;font-weight:700;color:#c7d7f0;}
+.vv.W{color:#ffcc00;} .vv.A{color:#ff4040;}
+.vu{font-size:.42rem;color:var(--dim);}
+.click-hint{font-size:.54rem;color:#1a3a5c;text-align:right;
+  padding:3px 10px 6px;background:#000;font-family:var(--mono);}
+
+/* ── DETAIL PAGE ── */
+.det-info{background:var(--bg2);border:1px solid var(--bdr2);border-radius:var(--r);
+  padding:12px 16px;margin-bottom:10px;}
+.det-pid{font-family:'Orbitron',monospace;font-size:1rem;font-weight:900;color:#00e5ff;}
+.det-name{font-size:1.2rem;font-weight:700;margin-top:2px;}
+.det-meta{font-size:.72rem;color:var(--mut);font-family:var(--mono);margin-top:3px;}
+.det-badges{display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap;}
+
+/* Two-column wave + stats layout */
+.wave-cols{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;}
+@media(max-width:860px){.wave-cols{grid-template-columns:1fr;}}
+.wave-box{background:var(--bg2);border:1px solid var(--bdr2);border-radius:var(--r);overflow:hidden;}
+.wave-box.early-box{background:var(--ebg);border-color:var(--ebdr);}
+.wave-hdr{display:flex;align-items:center;justify-content:space-between;
+  padding:7px 12px;border-bottom:1px solid var(--bdr);background:var(--bg3);}
+.wave-hdr.eh{background:#100620;border-color:var(--ebdr);}
+.wave-title{font-family:'Orbitron',monospace;font-size:.6rem;letter-spacing:.08em;color:var(--mut);}
+.wave-title.et{color:var(--ea);}
+.wave-badge{font-family:var(--mono);font-size:.58rem;padding:1px 8px;border-radius:10px;
+  background:#1a0a30;color:var(--ea);border:1px solid var(--ebdr);}
+
+/* Big ECG */
+.ecg-big{position:relative;height:130px;background:#000;overflow:hidden;}
+.ecg-big::before{content:'';position:absolute;inset:0;pointer-events:none;z-index:0;
+  background:repeating-linear-gradient(0deg,transparent,transparent 14px,#0d2035 14px,#0d2035 15px),
+             repeating-linear-gradient(90deg,transparent,transparent 14px,#0d2035 14px,#0d2035 15px);}
+canvas.ecb{position:relative;z-index:1;width:100%;height:100%;}
+.ecg-vals{display:flex;justify-content:space-between;padding:4px 10px;
+  background:#000;border-top:1px solid var(--bdr);}
+.ecg-v{font-family:'Orbitron',monospace;font-size:.72rem;font-weight:700;}
+
+/* avg strip below wave */
+.avg-strip{display:grid;grid-template-columns:repeat(9,1fr);gap:2px;padding:4px 6px;
+  background:var(--bg3);border-top:1px solid var(--bdr);}
+.avg-cell{text-align:center;padding:4px 2px;background:var(--bg2);border:1px solid var(--bdr);border-radius:4px;}
+.avg-lbl{font-size:.44rem;color:var(--mut);text-transform:uppercase;}
+.avg-val{font-family:'Orbitron',monospace;font-size:.72rem;font-weight:700;}
+.avg-u{font-size:.42rem;color:var(--dim);}
+
+/* Detail charts */
+.det-charts{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;}
+@media(max-width:860px){.det-charts{grid-template-columns:1fr;}}
+.chart-box{background:var(--bg2);border:1px solid var(--bdr2);border-radius:var(--r);padding:10px;}
+.chart-title{font-family:'Orbitron',monospace;font-size:.56rem;letter-spacing:.08em;
+  color:var(--mut);margin-bottom:6px;}
+.chart-wrap{position:relative;height:110px;}
+
+/* Detail tables */
+.tbl-pair{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;}
+@media(max-width:860px){.tbl-pair{grid-template-columns:1fr;}}
+.tbl-box{background:var(--bg2);border:1px solid var(--bdr2);border-radius:var(--r);overflow:hidden;}
+.tbl-box.etbl-box{background:var(--ebg);border-color:var(--ebdr);}
+.tbl-hdr{display:flex;align-items:center;justify-content:space-between;
+  padding:6px 10px;background:var(--bg3);border-bottom:1px solid var(--bdr);}
+.tbl-hdr.eth{background:#100620;border-color:var(--ebdr);}
+.tbl-title{font-family:'Orbitron',monospace;font-size:.58rem;letter-spacing:.08em;color:var(--mut);}
+.tbl-title.et{color:var(--ea);}
+.tbl-cnt{font-family:var(--mono);font-size:.58rem;background:#1a1200;color:#ffd60a;
+  border:1px solid #ffd60a33;border-radius:10px;padding:1px 7px;}
+.tbl-scroll{overflow-y:auto;max-height:220px;}
+table.mt{width:100%;border-collapse:collapse;font-size:.62rem;}
+table.mt th{position:sticky;top:0;background:var(--bg3);padding:4px 5px;text-align:center;
+  font-size:.52rem;text-transform:uppercase;letter-spacing:.05em;
+  border-bottom:1px solid var(--bdr);white-space:nowrap;z-index:1;
+  font-family:var(--mono);color:var(--mut);}
+table.mt.et th{background:#100620;color:var(--ea);border-color:var(--ebdr);}
+table.mt td{padding:3px 5px;border-bottom:1px solid var(--bdr);
+  font-family:var(--mono);white-space:nowrap;text-align:center;}
+table.mt.et td{border-color:#1e0a40;}
+table.mt tr.dHIGH td{background:#1a0000;color:#ff8888;}
+table.mt tr.dCRITICAL td{background:#1a0033;color:#ff88ff;}
+table.mt tr.dMODERATE td{background:#1a1200;color:#ffdd88;}
+table.mt tr.dLOW td{color:#7ab0cc;}
+table.mt td.uc{background:#2a1400;color:#ffcc00;font-weight:700;}
+table.mt td.cc{background:#2a0033;color:#ff00ff;font-weight:700;}
+
+/* Event log */
+.logbox{background:var(--bg2);border:1px solid var(--bdr2);border-radius:var(--r);overflow:hidden;}
+.log-hdr{display:flex;align-items:center;justify-content:space-between;
+  padding:7px 12px;background:var(--bg3);border-bottom:1px solid var(--bdr);}
+.log-title{font-family:'Orbitron',monospace;font-size:.58rem;letter-spacing:.1em;color:var(--mut);}
+.log-cnt{font-family:var(--mono);font-size:.58rem;background:#330000;color:#ff4040;
+  border:1px solid #ff404055;border-radius:10px;padding:1px 7px;}
+.log-f{display:flex;gap:6px;align-items:center;}
+.lf{background:var(--bg3);border:1px solid var(--bdr2);color:var(--txt);
+  border-radius:5px;padding:2px 7px;font-size:.6rem;font-family:var(--mono);}
+.lclear{background:#330000;border:1px solid #ff404055;color:#ff4040;
+  border-radius:5px;padding:2px 8px;font-size:.6rem;cursor:pointer;font-family:var(--mono);}
+.log-body{overflow-y:auto;max-height:200px;}
+table.lt{width:100%;border-collapse:collapse;font-size:.62rem;}
+table.lt th{position:sticky;top:0;background:var(--bg3);padding:4px 6px;text-align:left;
+  font-size:.52rem;text-transform:uppercase;letter-spacing:.05em;
+  border-bottom:1px solid var(--bdr);white-space:nowrap;z-index:1;
+  font-family:var(--mono);color:var(--mut);}
+table.lt td{padding:3px 6px;border-bottom:1px solid var(--bdr);font-family:var(--mono);white-space:nowrap;}
+table.lt tr.eHIGH td{background:#1a0000;color:#ff8888;}
+table.lt tr.eCRITICAL td{background:#1a0033;color:#ff88ff;}
+table.lt tr.eMODERATE td{background:#1a1200;color:#ffdd88;}
+.src-a{background:#003322;color:#00ff88;border:1px solid #00ff8833;border-radius:3px;padding:1px 5px;font-size:.54rem;}
+.src-e{background:#1a0a30;color:var(--ea);border:1px solid var(--ebdr);border-radius:3px;padding:1px 5px;font-size:.54rem;}
+.log-empty{padding:14px;text-align:center;color:var(--mut);font-size:.7rem;font-family:var(--mono);}
+
+/* Modal */
+.modal-ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:1000;
+  align-items:center;justify-content:center;}
+.modal-ov.show{display:flex;}
+.modal{background:var(--bg2);border:1px solid var(--bdr2);border-radius:12px;
+  padding:22px 26px;min-width:340px;box-shadow:0 0 40px rgba(0,229,255,.1);}
+.modal h2{font-family:'Orbitron',monospace;font-size:.84rem;color:#00e5ff;margin-bottom:14px;}
+.frow{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;}
+.fg label{font-size:.6rem;color:var(--mut);font-family:var(--mono);text-transform:uppercase;
+  letter-spacing:.06em;display:block;margin-bottom:4px;}
+.fg input,.fg select{width:100%;background:var(--bg3);border:1px solid var(--bdr2);
+  color:var(--txt);border-radius:5px;padding:6px 10px;font-size:.74rem;font-family:var(--mono);}
+.mbtns{display:flex;gap:8px;margin-top:14px;justify-content:flex-end;}
+.mb{font-family:var(--mono);font-size:.64rem;padding:6px 14px;border-radius:5px;cursor:pointer;border:1px solid;}
+.mb-add{background:#003322;color:var(--low);border-color:#00ff8855;}
+.mb-can{background:var(--bg3);color:var(--mut);border-color:var(--bdr2);}
+.mst{font-family:var(--mono);font-size:.62rem;margin-top:8px;padding:4px 8px;border-radius:5px;display:none;}
+
+/* Status bar */
+.sbar{display:flex;align-items:center;gap:10px;margin-top:10px;padding-top:8px;
+  border-top:1px solid var(--bdr);font-size:.6rem;font-family:var(--mono);color:var(--mut);}
+.sdot{width:6px;height:6px;border-radius:50%;display:inline-block;margin-right:3px;}
+.dok{background:var(--low);}.dwarn{background:var(--mod);}.derr{background:var(--high);}
+
+/* Animations */
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.35}}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.55;transform:scale(.8)}}
+@keyframes critpulse{0%,100%{box-shadow:0 0 18px rgba(255,0,255,.25)}50%{box-shadow:0 0 36px rgba(255,0,255,.65)}}
+</style>
+</head>
+<body>
+
+<!-- ADD PATIENT MODAL -->
+<div class="modal-ov" id="modal">
+  <div class="modal">
+    <h2>ADD NEW PATIENT</h2>
+    <div class="frow">
+      <div class="fg"><label>Full Name</label><input id="f-name" type="text" placeholder="e.g. Sharma R."></div>
+      <div class="fg"><label>Age</label><input id="f-age" type="number" min="1" max="120" value="55"></div>
+    </div>
+    <div class="frow">
+      <div class="fg"><label>Sex</label>
+        <select id="f-sex"><option value="M">Male</option><option value="F">Female</option></select>
+      </div>
+      <div class="fg"><label>Onset minute (-1=none)</label><input id="f-onset" type="number" min="-1" max="119" value="-1"></div>
+    </div>
+    <div class="frow">
+      <div class="fg"><label>Severity</label>
+        <select id="f-sev">
+          <option value="none">None</option><option value="mild">Mild</option>
+          <option value="moderate" selected>Moderate</option><option value="severe">Severe</option>
+        </select>
+      </div>
+    </div>
+    <div class="mst" id="mst"></div>
+    <div class="mbtns">
+      <button class="mb mb-can" id="modal-cancel">Cancel</button>
+      <button class="mb mb-add" id="modal-add">Add Patient</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ DASHBOARD PAGE ═══════════════ -->
+<div class="page active" id="page-dashboard">
+
+  <div class="hdr">
+    <div>
+      <h1><span class="live-dot"></span>ICU SEPSIS MONITOR</h1>
+      <p>Live monitoring · Click patient for early prediction detail</p>
+    </div>
+    <div class="hdr-r">
+      <span class="mbadge" id="mbadge">connecting...</span>
+      <span class="clock" id="clock">--:--:--</span>
+    </div>
+  </div>
+
+  <!-- Sound + Threshold toolbar -->
+  <div class="snd-row">
+    <span class="snd-lbl">Sound:</span>
+    <input type="file" id="snd-file-a" accept="audio/*" class="snd-file" title="Pick alert sound">
+    <input class="snd-url" id="snd-url-a" type="text" placeholder="or paste URL...">
+    <button class="btn btn-snd" id="snd-tog-a">&#128263; OFF</button>
+    <button class="btn" id="snd-test-a" style="background:var(--bg3);border-color:var(--bdr2);color:#ffd60a;font-size:.58rem;padding:3px 9px;">&#9654; Test</button>
+    <div class="snd-sep"></div>
+    <div class="thr-box" id="thr-box-a">
+      <span class="tl">Actual thr:</span>
+      <input type="number" id="thr-a" min="0.1" max="0.9" step="0.05" value="0.50">
+    </div>
+    <div class="thr-box" id="thr-box-e" style="border-color:var(--ebdr);">
+      <span class="tl" style="color:var(--ea)">Early thr:</span>
+      <input type="number" id="thr-e" min="0.1" max="0.9" step="0.05" value="0.40" style="color:var(--ea)">
+    </div>
+    <span class="snd-msg" id="snd-msg"></span>
+  </div>
+
+  <!-- Toolbar -->
+  <div class="toolbar">
+    <button class="btn btn-add" id="add-btn">+ Add Patient</button>
+    <button class="btn btn-reset" id="reset-btn">&#8635; Reset All</button>
+    <button class="btn btn-local" id="local-btn">&#8635; Clear Display</button>
+    <div class="rsb" id="rsb"></div>
+  </div>
+
+  <div id="cbanner"></div>
+
+  <div class="slbl">LIVE PATIENT MONITORS — click any patient for early prediction detail</div>
+  <div class="cards" id="cards-grid">
+    <div style="color:var(--mut);padding:16px;font-family:var(--mono);font-size:.76rem;">
+      Connecting to http://localhost:5000 ...
+    </div>
+  </div>
+
+  <!-- Event log -->
+  <div class="slbl">EVENT LOG</div>
+  <div class="logbox">
+    <div class="log-hdr">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span class="log-title">EVENTS</span>
+        <span class="log-cnt" id="log-cnt">0</span>
+      </div>
+      <div class="log-f">
+        <select class="lf" id="pf"><option value="ALL">All patients</option></select>
+        <select class="lf" id="sf">
+          <option value="ALL">All sources</option>
+          <option value="actual">Actual only</option>
+          <option value="early">Early only</option>
+        </select>
+        <button class="lclear" id="log-clear">Clear</button>
+      </div>
+    </div>
+    <div class="log-body">
+      <table class="lt">
+        <thead><tr>
+          <th>Time</th><th>PID</th><th>Min</th><th>Src</th>
+          <th style="color:var(--hr)">HR</th><th style="color:var(--bp)">SBP</th>
+          <th style="color:var(--tp)">Temp</th><th style="color:var(--sp)">SpO2</th>
+          <th style="color:var(--la)">Lac</th><th>Prob</th><th>Risk</th>
+        </tr></thead>
+        <tbody id="log-tbody"></tbody>
+      </table>
+      <div class="log-empty" id="log-empty">No events yet</div>
+    </div>
+  </div>
+
+  <div class="sbar">
+    <span><span class="sdot" id="sd-srv"></span><span id="sl-srv">server</span></span>
+    <span><span class="sdot" id="sd-mdl"></span><span id="sl-mdl">model</span></span>
+    <span><span id="sl-pts">0 patients</span></span>
+    <span style="margin-left:auto;" id="sl-poll">polling...</span>
+  </div>
+</div>
+
+<!-- ═══════════════ DETAIL PAGE ═══════════════ -->
+<div class="page" id="page-detail">
+
+  <div class="hdr">
+    <div>
+      <h1 id="d-h1">PATIENT DETAIL</h1>
+      <p id="d-sub">loading...</p>
+    </div>
+    <div class="hdr-r">
+      <span class="mbadge" id="d-badge" style="color:#00e5ff">—</span>
+      <span class="clock" id="d-clock">--:--:--</span>
+    </div>
+  </div>
+
+  <div class="toolbar">
+    <button class="btn btn-back" id="back-btn">← Dashboard</button>
+  </div>
+
+  <div id="d-cbanner"></div>
+
+  <!-- Patient info -->
+  <div class="det-info" id="d-info">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+      <div>
+        <div class="det-pid" id="d-pid">—</div>
+        <div class="det-name" id="d-name">—</div>
+        <div class="det-meta" id="d-meta">—</div>
+      </div>
+      <div class="det-badges" id="d-badges"></div>
+    </div>
+  </div>
+
+  <!-- TWO WAVE CHARTS side by side -->
+  <div class="slbl">LIVE ECG WAVEFORMS</div>
+  <div class="wave-cols">
+    <!-- Actual wave -->
+    <div class="wave-box">
+      <div class="wave-hdr">
+        <span class="wave-title">ACTUAL — CURRENT VITALS</span>
+        <span class="rbadge rBUFFERING" id="d-arisk">BUFFERING</span>
+      </div>
+      <div class="ecg-big" id="d-ecg-a-wrap">
+        <canvas class="ecb" id="d-ecg-a"></canvas>
+      </div>
+      <div class="ecg-vals">
+        <span class="ecg-v" style="color:var(--hr)" id="d-a-hr">— bpm</span>
+        <span class="ecg-v" style="color:var(--bp)" id="d-a-bp">—/— mmHg</span>
+        <span class="ecg-v" style="color:var(--sp)" id="d-a-spo2">— %</span>
+        <span class="ecg-v" style="color:var(--la)" id="d-a-lac">— mmol/L</span>
+        <span class="ecg-v" style="color:var(--tp)" id="d-a-temp">— °C</span>
+      </div>
+      <!-- Average strip below wave -->
+      <div class="avg-strip" id="d-avg-actual"></div>
+    </div>
+    <!-- Early prediction wave -->
+    <div class="wave-box early-box">
+      <div class="wave-hdr eh">
+        <span class="wave-title et">30-MIN EARLY PREDICTION</span>
+        <span class="wave-badge" id="d-horizon-badge">HORIZON=30min</span>
+        <span class="rbadge rBUFFERING" id="d-erisk">BUFFERING</span>
+      </div>
+      <div class="ecg-big" id="d-ecg-e-wrap">
+        <canvas class="ecb" id="d-ecg-e"></canvas>
+      </div>
+      <div class="ecg-vals" style="background:#060012;border-color:var(--ebdr);">
+        <span class="ecg-v" style="color:var(--hr)" id="d-e-hr">— bpm</span>
+        <span class="ecg-v" style="color:var(--bp)" id="d-e-bp">—/— mmHg</span>
+        <span class="ecg-v" style="color:var(--sp)" id="d-e-spo2">— %</span>
+        <span class="ecg-v" style="color:var(--la)" id="d-e-lac">— mmol/L</span>
+        <span class="ecg-v" style="color:var(--tp)" id="d-e-temp">— °C</span>
+      </div>
+      <!-- Average strip below wave -->
+      <div class="avg-strip" style="background:#0d0820;border-color:var(--ebdr);" id="d-avg-early"></div>
+    </div>
+  </div>
+
+  <!-- TREND CHARTS -->
+  <div class="slbl">TRENDS</div>
+  <div class="det-charts">
+    <div class="chart-box"><div class="chart-title">HEART RATE (bpm)</div><div class="chart-wrap"><canvas id="d-ch-hr"></canvas></div></div>
+    <div class="chart-box"><div class="chart-title">SEPSIS PROBABILITY</div><div class="chart-wrap"><canvas id="d-ch-prob"></canvas></div></div>
+    <div class="chart-box"><div class="chart-title">BLOOD PRESSURE (mmHg)</div><div class="chart-wrap"><canvas id="d-ch-bp"></canvas></div></div>
+    <div class="chart-box"><div class="chart-title">LACTATE (mmol/L)</div><div class="chart-wrap"><canvas id="d-ch-lac"></canvas></div></div>
+  </div>
+
+  <!-- MINUTE TABLES side by side -->
+  <div class="slbl">MINUTE-BY-MINUTE RECORDS</div>
+  <div class="tbl-pair">
+    <div class="tbl-box">
+      <div class="tbl-hdr">
+        <span class="tbl-title">ACTUAL DATA</span>
+        <span class="tbl-cnt" id="d-acnt">0 min</span>
+      </div>
+      <div class="tbl-scroll">
+        <table class="mt"><thead><tr>
+          <th>Min</th>
+          <th style="color:var(--hr)">HR</th><th style="color:var(--bp)">SBP</th>
+          <th style="color:var(--bp)">DBP</th><th style="color:var(--rr)">RR</th>
+          <th style="color:var(--tp)">Temp</th><th style="color:var(--sp)">SpO2</th>
+          <th style="color:var(--wb)">WBC</th><th style="color:var(--la)">Lac</th>
+          <th style="color:var(--ec)">ECG</th><th>Risk</th>
+        </tr></thead>
+        <tbody id="d-atbody"></tbody></table>
+      </div>
+    </div>
+    <div class="tbl-box etbl-box">
+      <div class="tbl-hdr eth">
+        <span class="tbl-title et">EARLY PREDICTION (30min ahead)</span>
+        <span class="tbl-cnt" id="d-ecnt">0 min</span>
+      </div>
+      <div class="tbl-scroll">
+        <table class="mt et"><thead><tr>
+          <th>Min</th>
+          <th style="color:var(--hr)">HR</th><th style="color:var(--bp)">SBP</th>
+          <th style="color:var(--bp)">DBP</th><th style="color:var(--rr)">RR</th>
+          <th style="color:var(--tp)">Temp</th><th style="color:var(--sp)">SpO2</th>
+          <th style="color:var(--wb)">WBC</th><th style="color:var(--la)">Lac</th>
+          <th style="color:var(--ec)">ECG</th><th>Risk</th>
+        </tr></thead>
+        <tbody id="d-etbody"></tbody></table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════
+// CONFIG
+// ═══════════════════════════════════════════════════
+var API    = "http://localhost:5000";
+var REFRESH= 1000;
+var ECG_LEN= 200;
+
+// ═══════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════
+var allPatients    = [];
+var currentPid     = null;
+
+// ECG buffers for dashboard cards (actual only)
+var ecgBuf   = {};
+var ecgPhase = {};
+var ecgCtx   = {};
+var ecgCv    = {};
+
+// ECG buffers for detail page (actual + early)
+var detEcgBufA = new Float32Array(ECG_LEN);
+var detEcgBufE = new Float32Array(ECG_LEN);
+var detPhaseA  = 0;
+var detPhaseE  = 0;
+var detCtxA    = null;
+var detCtxE    = null;
+var detCvA     = null;
+var detCvE     = null;
+
+// Charts on detail page
+var dChHr   = null;
+var dChProb = null;
+var dChBp   = null;
+var dChLac  = null;
+
+// Sound state
+var snd = { enabled:false, blobURL:null, audioEl:null };
+var thrA = 0.50;
+var thrE = 0.40;
+var critWas = {};
+
+// Logging
+var eventLog      = [];
+var loggedKeys    = {};
+var renderedPids  = [];
+var statusCnt     = 0;
+
+// ═══════════════════════════════════════════════════
+// SOUND
+// ═══════════════════════════════════════════════════
+document.getElementById("snd-file-a").addEventListener("change",function(e){
+  var file=e.target.files[0]; if(!file)return;
+  if(snd.blobURL) URL.revokeObjectURL(snd.blobURL);
+  snd.blobURL=URL.createObjectURL(file);
+  if(!snd.audioEl) snd.audioEl=new Audio();
+  snd.audioEl.src=snd.blobURL; snd.audioEl.load();
+  document.getElementById("snd-url-a").value="";
+  sndMsg("Loaded: "+file.name,"#00ff88");
+});
+document.getElementById("snd-tog-a").addEventListener("click",function(){
+  snd.enabled=!snd.enabled;
+  this.className="btn btn-snd"+(snd.enabled?" on":"");
+  this.textContent=snd.enabled?"🔔 ON":"🔇 OFF";
+  sndMsg(snd.enabled?"Sound ON":"Sound OFF",snd.enabled?"#00ff88":"#ff4040");
+});
+document.getElementById("snd-test-a").addEventListener("click",function(){
+  var p=snd.enabled; snd.enabled=true; playAlert(); snd.enabled=p;
+  sndMsg("Testing...","#ffd60a");
+});
+document.getElementById("thr-a").addEventListener("change",function(){
+  var v=parseFloat(this.value);
+  if(!isNaN(v)&&v>=0.1&&v<=0.9){thrA=v;sndMsg("Actual threshold: "+v.toFixed(2),"#00e5ff");}
+});
+document.getElementById("thr-e").addEventListener("change",function(){
+  var v=parseFloat(this.value);
+  if(!isNaN(v)&&v>=0.1&&v<=0.9){thrE=v;sndMsg("Early threshold: "+v.toFixed(2),"var(--ea)");}
+});
+
+var _sndMsgT=null;
+function sndMsg(m,c){
+  var el=document.getElementById("snd-msg");
+  el.textContent=m;el.style.color=c||"var(--mut)";
+  clearTimeout(_sndMsgT);_sndMsgT=setTimeout(function(){el.textContent="";},4000);
+}
+function builtinBeep(f1,f2){
+  try{
+    var ac=new(window.AudioContext||window.webkitAudioContext)();
+    if(ac.state==="suspended")ac.resume();
+    function t(f,s,d){var o=ac.createOscillator(),g=ac.createGain();
+      o.connect(g);g.connect(ac.destination);o.frequency.value=f;
+      g.gain.setValueAtTime(0,ac.currentTime+s);
+      g.gain.linearRampToValueAtTime(.5,ac.currentTime+s+.02);
+      g.gain.exponentialRampToValueAtTime(.001,ac.currentTime+s+d);
+      o.start(ac.currentTime+s);o.stop(ac.currentTime+s+d+.05);}
+    t(f1||900,.00,.22);t(f1||900,.28,.22);t(f2||1200,.56,.30);
+  }catch(e){}
+}
+function playAlert(forEarly){
+  if(!snd.enabled)return;
+  if(snd.blobURL){
+    try{
+      if(!snd.audioEl)snd.audioEl=new Audio();
+      snd.audioEl.src=snd.blobURL;snd.audioEl.currentTime=0;
+      var p=snd.audioEl.play();
+      if(p)p.catch(function(){builtinBeep(forEarly?800:900,forEarly?1000:1200);});
+      return;
+    }catch(e){}
+  }
+  var url=document.getElementById("snd-url-a").value.trim();
+  if(url){try{new Audio(url).play();return;}catch(e){}}
+  builtinBeep(forEarly?800:900,forEarly?1000:1200);
+}
+document.addEventListener("click",function(){
+  try{var ac=new(window.AudioContext||window.webkitAudioContext)();
+      if(ac.state==="suspended")ac.resume();}catch(e){}
+},{once:true});
+
+// ═══════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════
+function rCol(r){return{LOW:"#00ff88",MODERATE:"#ffcc00",HIGH:"#ff4040",
+  CRITICAL:"#ff00ff",BUFFERING:"#3a6080"}[r]||"#3a6080";}
+function f(v,d){return(v===null||v===undefined||v==="—")?"—":
+  (typeof v==="number"?v.toFixed(d):String(v));}
+function hRgba(h,a){var r=parseInt(h.slice(1,3),16),g=parseInt(h.slice(3,5),16),
+  b=parseInt(h.slice(5,7),16);return"rgba("+r+","+g+","+b+","+a+")";}
+function nowStr(){return new Date().toLocaleTimeString("en-GB");}
+
+function isU(k,v){if(typeof v!=="number")return false;
+  var t={"heart_rate_bpm":function(x){return x>100||x<50},
+    "systolic_bp_mmhg":function(x){return x<90||x>160},
+    "diastolic_bp_mmhg":function(x){return x<50||x>100},
+    "resp_rate_br_min":function(x){return x>20||x<10},
+    "temp_c":function(x){return x>38.3||x<36},
+    "spo2_pct":function(x){return x<95},
+    "wbc_103_ul":function(x){return x>11||x<4},
+    "lactate_mmol_l":function(x){return x>2},
+    "ecg_mv":function(x){return x>1.2||x<0.6}};
+  return t[k]?t[k](v):false;}
+function isC(k,v){if(typeof v!=="number")return false;
+  var t={"heart_rate_bpm":function(x){return x>130||x<40},
+    "systolic_bp_mmhg":function(x){return x<80},
+    "spo2_pct":function(x){return x<90},
+    "lactate_mmol_l":function(x){return x>4},
+    "temp_c":function(x){return x>40||x<35.5}};
+  return t[k]?t[k](v):false;}
+function classRisk(mv){
+  if(!mv)return"LOW";
+  var h=mv.heart_rate_bpm||0,s=mv.systolic_bp_mmhg||200,
+      l=mv.lactate_mmol_l||0,o=mv.spo2_pct||100,t=mv.temp_c||37;
+  if(h>130||s<75||l>5||o<88||t>40)return"CRITICAL";
+  if(h>110||s<85||l>3||o<92||t>38.5)return"HIGH";
+  if(h>100||s<95||l>2||o<95||t>38)return"MODERATE";
+  return"LOW";}
+
+setInterval(function(){
+  var t=nowStr();
+  document.getElementById("clock").textContent=t;
+  document.getElementById("d-clock").textContent=t;
+},1000);
+
+// ═══════════════════════════════════════════════════
+// ECG ENGINE
+// ═══════════════════════════════════════════════════
+function pqrst(t){
+  var v=0;
+  v+=0.15*Math.exp(-Math.pow((t-.14)/.04,2));
+  v-=0.08*Math.exp(-Math.pow((t-.28)/.012,2));
+  v+=1.00*Math.exp(-Math.pow((t-.32)/.010,2));
+  v-=0.18*Math.exp(-Math.pow((t-.38)/.012,2));
+  v+=0.28*Math.exp(-Math.pow((t-.62)/.06,2));
+  return v;}
+function pushBeat(buf,phase,hr){
+  var bpm=Math.max(40,Math.min(180,hr||75));
+  var samps=Math.round(ECG_LEN*.7*(75/bpm));
+  samps=Math.max(20,Math.min(ECG_LEN-1,samps));
+  for(var i=0;i<samps;i++){
+    buf[phase%ECG_LEN]=pqrst(i/samps)+Math.random()*.03-.015;
+    phase++;}
+  return phase;}
+function drawEcg(cv,ctx,buf,phase,risk){
+  if(!cv||!ctx)return;
+  var W=cv.width,H=cv.height;
+  ctx.clearRect(0,0,W,H);
+  var col=risk==="CRITICAL"?"#ff00ff":risk==="HIGH"?"#ff4040":
+          risk==="MODERATE"?"#ffcc00":"#39ff14";
+  ctx.shadowBlur=6;ctx.shadowColor=col;ctx.strokeStyle=col;ctx.lineWidth=1.6;
+  ctx.beginPath();
+  var midY=H*.5,amp=H*.38;
+  for(var i=0;i<ECG_LEN;i++){
+    var si=(phase-ECG_LEN+i+ECG_LEN*100)%ECG_LEN;
+    var x=(i/(ECG_LEN-1))*W,y=midY-buf[si]*amp;
+    i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);}
+  ctx.stroke();ctx.shadowBlur=0;
+  var sx=((phase%ECG_LEN)/ECG_LEN)*W;
+  ctx.fillStyle="rgba(0,0,0,.55)";ctx.fillRect(sx,0,W*.05,H);}
+
+var lastAnim=0;
+function animLoop(now){
+  if(now-lastAnim>50){
+    // Dashboard card ECGs
+    Object.keys(ecgBuf).forEach(function(pid){
+      ecgBuf[pid].copyWithin(0,2);
+      ecgBuf[pid][ECG_LEN-2]=Math.random()*.02-.01;
+      ecgBuf[pid][ECG_LEN-1]=Math.random()*.02-.01;
+      ecgPhase[pid]=(ecgPhase[pid]+2)%(ECG_LEN*100);
+      var p=allPatients.find(function(x){return x.pid===pid;});
+      var risk=p?p.risk_level:"LOW";
+      drawEcg(ecgCv[pid],ecgCtx[pid],ecgBuf[pid],ecgPhase[pid],risk);
+    });
+    // Detail page ECGs
+    if(currentPid){
+      detEcgBufA.copyWithin(0,2);
+      detEcgBufA[ECG_LEN-2]=Math.random()*.02-.01;
+      detEcgBufA[ECG_LEN-1]=Math.random()*.02-.01;
+      detPhaseA=(detPhaseA+2)%(ECG_LEN*100);
+      var dp=allPatients.find(function(x){return x.pid===currentPid;});
+      var drA=dp?dp.risk_level:"LOW";
+      drawEcg(detCvA,detCtxA,detEcgBufA,detPhaseA,drA);
+
+      detEcgBufE.copyWithin(0,2);
+      detEcgBufE[ECG_LEN-2]=Math.random()*.02-.01;
+      detEcgBufE[ECG_LEN-1]=Math.random()*.02-.01;
+      detPhaseE=(detPhaseE+2)%(ECG_LEN*100);
+      var drE=dp?dp.early_risk_level:"LOW";
+      drawEcg(detCvE,detCtxE,detEcgBufE,detPhaseE,drE);
+    }
+    lastAnim=now;
+  }
+  requestAnimationFrame(animLoop);}
+
+// ═══════════════════════════════════════════════════
+// PAGE NAVIGATION
+// ═══════════════════════════════════════════════════
+function showPage(name){
+  document.querySelectorAll(".page").forEach(function(p){p.classList.remove("active");});
+  document.getElementById("page-"+name).classList.add("active");}
+
+document.getElementById("back-btn").addEventListener("click",function(){
+  currentPid=null;showPage("dashboard");});
+
+// ═══════════════════════════════════════════════════
+// VITAL DEFS
+// ═══════════════════════════════════════════════════
+var VD=[
+  {l:"HR",  k:"heart_rate_bpm",   u:"bpm",  dp:1,c:"var(--hr)"},
+  {l:"SBP", k:"systolic_bp_mmhg", u:"mmHg", dp:1,c:"var(--bp)"},
+  {l:"DBP", k:"diastolic_bp_mmhg",u:"mmHg", dp:1,c:"var(--bp)"},
+  {l:"RR",  k:"resp_rate_br_min", u:"br/m", dp:1,c:"var(--rr)"},
+  {l:"Temp",k:"temp_c",           u:"°C",  dp:1,c:"var(--tp)"},
+  {l:"SpO2",k:"spo2_pct",         u:"%",   dp:1,c:"var(--sp)"},
+  {l:"WBC", k:"wbc_103_ul",       u:"k/µL",dp:2,c:"var(--wb)"},
+  {l:"Lac", k:"lactate_mmol_l",   u:"mmol",dp:2,c:"var(--la)"},
+  {l:"ECG", k:"ecg_mv",           u:"mV",  dp:3,c:"var(--ec)"},
+];
+var TK=VD.map(function(v){return{k:v.k,dp:v.dp};});
+
+function vCells(vt,isE){
+  return VD.map(function(vd){
+    var val=vt?vt[vd.k]:null;
+    var crit=isC(vd.k,val),uns=isU(vd.k,val);
+    var cls=crit?"A":uns?"W":"";
+    var dv=typeof val==="number"?val.toFixed(vd.dp):"—";
+    return"<div class='vc'><div class='vl' style='color:"+vd.c+"'>"+vd.l+"</div>"+
+      "<div class='vv "+cls+"'>"+dv+"</div><div class='vu'>"+vd.u+"</div></div>";
+  }).join("");}
+
+function avgCells(hist,isE){
+  if(!hist||!hist.length)
+    return VD.map(function(vd){
+      return"<div class='avg-cell'><div class='avg-lbl' style='color:"+vd.c+"'>"+vd.l+"</div>"+
+        "<div class='avg-val' style='color:"+vd.c+"'>—</div><div class='avg-u'>"+vd.u+"</div></div>";
+    }).join("");
+  var avgs={};
+  VD.forEach(function(vd){
+    var vals=hist.map(function(r){return r[vd.k];}).filter(function(v){return typeof v==="number";});
+    avgs[vd.k]=vals.length?vals.reduce(function(a,b){return a+b;},0)/vals.length:null;
+  });
+  return VD.map(function(vd){
+    var val=avgs[vd.k];
+    var cls=isC(vd.k,val)?"A":isU(vd.k,val)?"W":"";
+    var dv=typeof val==="number"?val.toFixed(vd.dp):"—";
+    return"<div class='avg-cell'><div class='avg-lbl' style='color:"+vd.c+"'>avg "+vd.l+"</div>"+
+      "<div class='avg-val "+cls+"' style='color:"+vd.c+"'>"+dv+"</div>"+
+      "<div class='avg-u'>"+vd.u+"</div></div>";
+  }).join("");}
+
+function tblRows(hist){
+  if(!hist||!hist.length)
+    return"<tr><td colspan='11' style='text-align:center;color:var(--mut);padding:10px;'>Waiting for data...</td></tr>";
+  return hist.slice().reverse().map(function(mv){
+    var mr=classRisk(mv);
+    var tds=TK.map(function(kd){
+      var val=mv[kd.k];
+      var cls=isC(kd.k,val)?"cc":isU(kd.k,val)?"uc":"";
+      return"<td class='"+cls+"'>"+f(val,kd.dp)+"</td>";
+    }).join("");
+    var minStr=mv.min!==undefined?mv.min:"—";
+    if(mv.predicted_for_minute!==undefined)minStr=mv.min+"→"+mv.predicted_for_minute;
+    return"<tr class='d"+mr+"'><td>"+minStr+"</td>"+tds+
+      "<td style='color:"+rCol(mr)+";font-weight:700'>"+mr+"</td></tr>";
+  }).join("");}
+
+// ═══════════════════════════════════════════════════
+// DASHBOARD CARDS
+// ═══════════════════════════════════════════════════
+function buildCards(patients){
+  var grid=document.getElementById("cards-grid");
+  var pf=document.getElementById("pf");
+  var existing=Array.from(pf.options).map(function(o){return o.value;});
+  patients.forEach(function(p){
+    if(existing.indexOf(p.pid)===-1){
+      var o=document.createElement("option");o.value=p.pid;o.textContent=p.pid+" "+p.patient_name;
+      pf.appendChild(o);}});
+
+  var html=patients.map(function(p){
+    var risk=p.risk_level||"BUFFERING";
+    var prob=p.probability||0;
+    var col=rCol(risk);
+    var pct=Math.round(prob*100);
+    return"<div class='card "+risk+"' id='card-"+p.pid+"' onclick='openDetail(\""+p.pid+"\")'>"+
+      "<button class='del-btn' onclick='event.stopPropagation();delPat(\""+p.pid+"\")'>✕</button>"+
+      "<div class='card-hdr'>"+
+        "<span class='card-pid'>"+p.pid+"</span>"+
+        "<div><div class='card-name'>"+p.patient_name+"</div>"+
+        "<div class='card-meta'>"+p.age+"y "+p.sex+" · min "+(p.minute||"—")+"</div></div>"+
+        "<span class='rbadge r"+risk+"'>"+risk+"</span>"+
+      "</div>"+
+      "<div class='ecg-mini' id='ecgw-"+p.pid+"'><canvas class='ecv' id='ecgc-"+p.pid+"'></canvas></div>"+
+      "<div class='prob-row'>"+
+        "<span class='ptlbl'>Prob</span>"+
+        "<div class='ptrack'><div class='pfill' style='width:"+pct+"%;background:"+col+"'></div></div>"+
+        "<span class='pnum' style='color:"+col+"'>"+prob.toFixed(3)+"</span>"+
+      "</div>"+
+      "<div class='vgrid' id='vg-"+p.pid+"'>"+vCells(p.vitals,false)+"</div>"+
+      "<div class='click-hint'>click → early prediction detail</div>"+
+    "</div>";
+  }).join("");
+  grid.innerHTML=html||"<div style='color:var(--mut);padding:16px;font-family:var(--mono);'>No patients</div>";
+  patients.forEach(function(p){initEcg(p.pid);});
+}
+
+function updateCards(patients){
+  patients.forEach(function(p){
+    var risk=p.risk_level||"BUFFERING";
+    var prob=p.probability||0;
+    var col=rCol(risk);
+    var card=document.getElementById("card-"+p.pid);
+    if(!card)return;
+    card.className="card "+risk;
+    var rb=card.querySelector(".rbadge");
+    if(rb){rb.className="rbadge r"+risk;rb.textContent=risk;}
+    var pf=card.querySelector(".pfill");
+    if(pf){pf.style.width=Math.round(prob*100)+"%";pf.style.background=col;}
+    var pn=card.querySelector(".pnum");
+    if(pn){pn.textContent=prob.toFixed(3);pn.style.color=col;}
+    var vg=document.getElementById("vg-"+p.pid);
+    if(vg)vg.innerHTML=vCells(p.vitals,false);
+  });}
+
+function initEcg(pid){
+  if(!ecgBuf[pid]){ecgBuf[pid]=new Float32Array(ECG_LEN);ecgPhase[pid]=0;}
+  var wrap=document.getElementById("ecgw-"+pid);
+  var cv=document.getElementById("ecgc-"+pid);
+  if(cv&&wrap){cv.width=wrap.offsetWidth||300;cv.height=wrap.offsetHeight||54;}
+  ecgCv[pid]=cv; ecgCtx[pid]=cv?cv.getContext("2d"):null;
+}
+
+// ═══════════════════════════════════════════════════
+// BANNER + SOUND
+// ═══════════════════════════════════════════════════
+function updateBanner(patients){
+  var crit=patients.filter(function(p){
+    return p.risk_level==="CRITICAL"||p.early_risk_level==="CRITICAL";});
+  patients.forEach(function(p){
+    var kA=p.pid+":A";
+    var alertA=(p.risk_level==="CRITICAL")||(p.probability>=thrA&&p.risk_level==="HIGH");
+    if(alertA&&!critWas[kA])playAlert(false);
+    critWas[kA]=alertA;
+    var kE=p.pid+":E";
+    var alertE=(p.early_risk_level==="CRITICAL")||(p.early_probability>=thrE&&p.early_risk_level==="HIGH");
+    if(alertE&&!critWas[kE])playAlert(true);
+    critWas[kE]=alertE;
+  });
+  var b=document.getElementById("cbanner");
+  var db=document.getElementById("d-cbanner");
+  if(crit.length>0){
+    var msg="🚨 CRITICAL — "+crit.map(function(p){return p.patient_name;}).join(" · ");
+    b.textContent=msg;b.classList.add("show");
+    if(currentPid){db.textContent=msg;db.classList.add("show");}
+  }else{b.classList.remove("show");db.classList.remove("show");}}
+
+// ═══════════════════════════════════════════════════
+// DETAIL PAGE
+// ═══════════════════════════════════════════════════
+function makeChart(canvasId,col){
+  var ctx=document.getElementById(canvasId).getContext("2d");
+  return new Chart(ctx,{type:"line",data:{labels:[],datasets:[
+    {data:[],borderColor:col,backgroundColor:hRgba(col,.07),
+     borderWidth:1.8,fill:true,tension:.4,pointRadius:0,label:"actual"},
+    {data:[],borderColor:"#a78bfa",backgroundColor:hRgba("#a78bfa",.05),
+     borderWidth:1.4,fill:false,tension:.4,pointRadius:0,
+     borderDash:[4,3],label:"early pred"}
+  ]},options:{animation:false,responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{display:true,labels:{color:"#3a6080",font:{size:9},boxWidth:20}}},
+    scales:{x:{display:false},y:{grid:{color:hRgba("#0d2035",1)},
+      ticks:{color:"#3a6080",font:{size:8},maxTicksLimit:4}}}}});}
+
+function openDetail(pid){
+  currentPid=pid;
+  showPage("detail");
+  // init charts
+  if(dChHr)  dChHr.destroy();
+  if(dChProb)dChProb.destroy();
+  if(dChBp)  dChBp.destroy();
+  if(dChLac) dChLac.destroy();
+  dChHr  =makeChart("d-ch-hr",  "#00e5ff");
+  dChProb=makeChart("d-ch-prob","#ff00ff");
+  dChBp  =makeChart("d-ch-bp",  "#ff6b35");
+  dChLac =makeChart("d-ch-lac", "#ffd60a");
+  // init ECG canvases
+  setTimeout(function(){
+    var wA=document.getElementById("d-ecg-a-wrap");
+    var wE=document.getElementById("d-ecg-e-wrap");
+    detCvA=document.getElementById("d-ecg-a");
+    detCvE=document.getElementById("d-ecg-e");
+    if(detCvA&&wA){detCvA.width=wA.offsetWidth||500;detCvA.height=wA.offsetHeight||130;}
+    if(detCvE&&wE){detCvE.width=wE.offsetWidth||500;detCvE.height=wE.offsetHeight||130;}
+    detCtxA=detCvA?detCvA.getContext("2d"):null;
+    detCtxE=detCvE?detCvE.getContext("2d"):null;
+  },60);
+  updateDetailPage();}
+
+function updateDetailPage(){
+  if(!currentPid)return;
+  var p=allPatients.find(function(x){return x.pid===currentPid;});
+  if(!p)return;
+
+  var risk =p.risk_level ||"BUFFERING";
+  var erisk=p.early_risk_level||"BUFFERING";
+  var prob =p.probability||0;
+  var eprob=p.early_probability||0;
+  var col  =rCol(risk);
+  var ecol =rCol(erisk);
+  var v    =p.vitals||{};
+  var ev   =p.early_vitals||{};
+
+  // Header
+  document.getElementById("d-h1").textContent=p.pid+" — "+p.patient_name;
+  document.getElementById("d-sub").textContent=
+    "Age "+p.age+" · "+p.sex+" · Minute "+(p.minute||"—")+" · "+p.model_used;
+  document.getElementById("d-pid").textContent=p.pid;
+  document.getElementById("d-name").textContent=p.patient_name;
+  document.getElementById("d-meta").textContent=
+    "Age: "+p.age+"  |  Sex: "+p.sex+"  |  Onset: "+(p.vitals?p.vitals.sepsis_onset_minute:"—")+
+    "  |  Engine: "+(p.model_used||"—");
+  document.getElementById("d-badge").textContent=risk;
+  document.getElementById("d-badge").style.color=col;
+
+  // Badges
+  document.getElementById("d-badges").innerHTML=
+    "<span class='rbadge r"+risk+"'>Actual: "+risk+"</span>"+
+    "<span style='font-family:var(--mono);font-size:.58rem;color:"+col+";margin:0 4px;'>"+prob.toFixed(3)+"</span>"+
+    "<span class='rbadge r"+erisk+"' style='margin-left:6px'>Early: "+erisk+"</span>"+
+    "<span style='font-family:var(--mono);font-size:.58rem;color:"+ecol+";margin-left:4px'>"+eprob.toFixed(3)+"</span>";
+
+  // Risk badges on wave headers
+  var ar=document.getElementById("d-arisk");
+  if(ar){ar.className="rbadge r"+risk;ar.textContent=risk;}
+  var er=document.getElementById("d-erisk");
+  if(er){er.className="rbadge r"+erisk;er.textContent=erisk;}
+
+  // Actual wave labels
+  document.getElementById("d-a-hr").textContent  =f(v.heart_rate_bpm,1)+" bpm";
+  document.getElementById("d-a-bp").textContent  =f(v.systolic_bp_mmhg,1)+"/"+f(v.diastolic_bp_mmhg,1)+" mmHg";
+  document.getElementById("d-a-spo2").textContent=f(v.spo2_pct,1)+" %";
+  document.getElementById("d-a-lac").textContent =f(v.lactate_mmol_l,2)+" mmol/L";
+  document.getElementById("d-a-temp").textContent=f(v.temp_c,1)+" °C";
+
+  // Early wave labels
+  document.getElementById("d-e-hr").textContent  =f(ev.heart_rate_bpm,1)+" bpm";
+  document.getElementById("d-e-bp").textContent  =f(ev.systolic_bp_mmhg,1)+"/"+f(ev.diastolic_bp_mmhg,1)+" mmHg";
+  document.getElementById("d-e-spo2").textContent=f(ev.spo2_pct,1)+" %";
+  document.getElementById("d-e-lac").textContent =f(ev.lactate_mmol_l,2)+" mmol/L";
+  document.getElementById("d-e-temp").textContent=f(ev.temp_c,1)+" °C";
+
+  // Push ECG beats
+  if(typeof v.heart_rate_bpm==="number")
+    detPhaseA=pushBeat(detEcgBufA,detPhaseA,v.heart_rate_bpm);
+  if(typeof ev.heart_rate_bpm==="number")
+    detPhaseE=pushBeat(detEcgBufE,detPhaseE,ev.heart_rate_bpm);
+
+  // Average strips (computed from minute history)
+  var ah=p.minute_history||[];
+  var eh=p.early_minute_history||[];
+  var avgA=document.getElementById("d-avg-actual");
+  var avgE=document.getElementById("d-avg-early");
+  if(avgA)avgA.innerHTML=avgCells(ah,false);
+  if(avgE)avgE.innerHTML=avgCells(eh,true);
+
+  // Charts: actual (dataset 0) + early (dataset 1)
+  var mins =ah.map(function(r){return r.min;});
+  var emins=eh.map(function(r){return r.min;});
+  function upCh(ch,aVals,eVals,labels,elabels){
+    ch.data.labels=labels;
+    ch.data.datasets[0].data=aVals;
+    ch.data.datasets[1].data=eVals;
+    ch.update("none");}
+  upCh(dChHr,
+    ah.map(function(r){return r.heart_rate_bpm||0;}),
+    eh.map(function(r){return r.heart_rate_bpm||0;}),
+    mins,emins);
+  upCh(dChProb,
+    ah.map(function(){return 0;}),   // prob not in history — placeholder
+    eh.map(function(){return 0;}),
+    mins,emins);
+  upCh(dChBp,
+    ah.map(function(r){return r.systolic_bp_mmhg||0;}),
+    eh.map(function(r){return r.systolic_bp_mmhg||0;}),
+    mins,emins);
+  upCh(dChLac,
+    ah.map(function(r){return r.lactate_mmol_l||0;}),
+    eh.map(function(r){return r.lactate_mmol_l||0;}),
+    mins,emins);
+
+  // Tables
+  var atb=document.getElementById("d-atbody");
+  var etb=document.getElementById("d-etbody");
+  if(atb)atb.innerHTML=tblRows(ah);
+  if(etb)etb.innerHTML=tblRows(eh);
+  var ac=document.getElementById("d-acnt");
+  var ec=document.getElementById("d-ecnt");
+  if(ac)ac.textContent=ah.length+" min";
+  if(ec)ec.textContent=eh.length+" min";}
+
+// ═══════════════════════════════════════════════════
+// EVENT LOG
+// ═══════════════════════════════════════════════════
+function addEvents(patients){
+  patients.forEach(function(p){
+    (p.minute_history||[]).forEach(function(mv){
+      var key="A:"+p.pid+":"+mv.min;if(loggedKeys[key])return;
+      loggedKeys[key]=true;
+      eventLog.push({time:mv.timestamp||nowStr(),pid:p.pid,name:p.patient_name,
+        min:mv.min,src:"actual",hr:mv.heart_rate_bpm,sbp:mv.systolic_bp_mmhg,
+        temp:mv.temp_c,spo2:mv.spo2_pct,lac:mv.lactate_mmol_l,
+        prob:p.probability,risk:classRisk(mv)});});
+    (p.early_minute_history||[]).forEach(function(mv){
+      var key="E:"+p.pid+":"+mv.min;if(loggedKeys[key])return;
+      loggedKeys[key]=true;
+      eventLog.push({time:mv.timestamp||nowStr(),pid:p.pid,name:p.patient_name,
+        min:mv.min,src:"early",hr:mv.heart_rate_bpm,sbp:mv.systolic_bp_mmhg,
+        temp:mv.temp_c,spo2:mv.spo2_pct,lac:mv.lactate_mmol_l,
+        prob:p.early_probability,risk:classRisk(mv)});});
+  });
+  eventLog.sort(function(a,b){
+    if(a.pid!==b.pid)return a.pid<b.pid?-1:1;
+    return(b.min||0)-(a.min||0);});
+  if(eventLog.length>800)eventLog=eventLog.slice(0,800);}
+
+function renderLog(){
+  var tbody=document.getElementById("log-tbody");
+  var empty=document.getElementById("log-empty");
+  var cnt=document.getElementById("log-cnt");
+  var pf=document.getElementById("pf").value;
+  var sf=document.getElementById("sf").value;
+  var fil=eventLog.filter(function(e){
+    return(pf==="ALL"||e.pid===pf)&&(sf==="ALL"||e.src===sf);});
+  cnt.textContent=eventLog.length;
+  if(!fil.length){tbody.innerHTML="";empty.style.display="block";return;}
+  empty.style.display="none";
+  function td(k,v,dp){var c=isC(k,v)?"cc":isU(k,v)?"uc":"";return"<td class='"+c+"'>"+f(v,dp)+"</td>";}
+  tbody.innerHTML=fil.slice(0,200).map(function(e){
+    var cls="e"+e.risk;
+    var badge=e.src==="actual"?"<span class='src-a'>actual</span>":"<span class='src-e'>early</span>";
+    return"<tr class='"+cls+"'>"+
+      "<td>"+e.time+"</td>"+
+      "<td style='color:#00e5ff;font-weight:700'>"+e.pid+"</td>"+
+      "<td>"+(e.min||"—")+"</td><td>"+badge+"</td>"+
+      td("heart_rate_bpm",e.hr,1)+td("systolic_bp_mmhg",e.sbp,1)+
+      td("temp_c",e.temp,1)+td("spo2_pct",e.spo2,1)+td("lactate_mmol_l",e.lac,2)+
+      "<td style='color:"+rCol(e.risk)+";font-weight:700'>"+(e.prob!==null&&e.prob!==undefined?e.prob.toFixed(3):"—")+"</td>"+
+      "<td style='color:"+rCol(e.risk)+";font-weight:700'>"+e.risk+"</td>"+
+    "</tr>";
+  }).join("");}
+
+document.getElementById("pf").addEventListener("change",renderLog);
+document.getElementById("sf").addEventListener("change",renderLog);
+document.getElementById("log-clear").addEventListener("click",function(){
+  eventLog=[];loggedKeys={};
+  document.getElementById("log-tbody").innerHTML="";
+  document.getElementById("log-empty").style.display="block";
+  document.getElementById("log-cnt").textContent="0";});
+
+// ═══════════════════════════════════════════════════
+// TOOLBAR ACTIONS
+// ═══════════════════════════════════════════════════
+function showRsb(msg,cls){
+  var el=document.getElementById("rsb");
+  el.textContent=msg;el.className="rsb "+cls;el.style.display="block";
+  clearTimeout(el._t);el._t=setTimeout(function(){el.style.display="none";},5000);}
+
+function localReset(){
+  eventLog=[];loggedKeys={};critWas={};renderedPids=[];
+  Object.keys(ecgBuf).forEach(function(pid){
+    ecgBuf[pid]=new Float32Array(ECG_LEN);ecgPhase[pid]=0;});
+  document.getElementById("cards-grid").innerHTML=
+    "<div style='color:var(--mut);padding:16px;font-family:var(--mono);font-size:.76rem;'>Display cleared...</div>";
+  document.getElementById("log-tbody").innerHTML="";
+  document.getElementById("log-empty").style.display="block";
+  document.getElementById("log-cnt").textContent="0";
+  document.getElementById("cbanner").classList.remove("show");
+  showRsb("Display cleared","rsb-ok");}
+
+document.getElementById("local-btn").addEventListener("click",localReset);
+document.getElementById("reset-btn").addEventListener("click",function(){
+  showRsb("Resetting...","rsb-wait");
+  fetch(API+"/api/restart",{method:"POST",mode:"cors",credentials:"omit",
+    headers:{"Content-Type":"application/json"},body:JSON.stringify({})})
+  .then(function(r){return r.text();})
+  .then(function(t){
+    try{return JSON.parse(t);}catch(e){throw new Error("Not JSON: "+t.slice(0,40));}})
+  .then(function(d){localReset();showRsb("Reset OK — "+d.deleted.length+" files","rsb-ok");})
+  .catch(function(e){showRsb("Error: "+e.message,"rsb-err");});});
+
+// Add patient
+document.getElementById("add-btn").addEventListener("click",function(){
+  document.getElementById("modal").classList.add("show");});
+document.getElementById("modal-cancel").addEventListener("click",function(){
+  document.getElementById("modal").classList.remove("show");});
+document.getElementById("modal-add").addEventListener("click",function(){
+  var name=document.getElementById("f-name").value.trim();
+  if(!name){alert("Enter a name");return;}
+  var mst=document.getElementById("mst");
+  mst.style.cssText="display:block;background:#1a1200;color:#ffcc00;border:1px solid #ffcc0044;padding:4px 8px;border-radius:5px;font-family:var(--mono);font-size:.62rem;";
+  mst.textContent="Adding...";
+  fetch(API+"/api/add_patient",{method:"POST",mode:"cors",credentials:"omit",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({name:name,age:parseInt(document.getElementById("f-age").value)||50,
+      sex:document.getElementById("f-sex").value,
+      onset:parseInt(document.getElementById("f-onset").value),
+      sev:document.getElementById("f-sev").value})})
+  .then(function(r){return r.json();})
+  .then(function(d){
+    mst.textContent="Added: "+d.pid;mst.style.background="#003322";mst.style.color="#00ff88";
+    setTimeout(function(){document.getElementById("modal").classList.remove("show");mst.style.display="none";},1400);})
+  .catch(function(e){mst.textContent="Error: "+e.message;mst.style.color="#ff4040";});});
+
+function delPat(pid){
+  if(!confirm("Remove "+pid+"?"))return;
+  fetch(API+"/api/remove/"+pid,{method:"DELETE",mode:"cors",credentials:"omit"})
+  .then(function(){
+    delete ecgBuf[pid];delete ecgPhase[pid];delete critWas[pid+":A"];delete critWas[pid+":E"];
+    eventLog=eventLog.filter(function(e){return e.pid!==pid;});
+    loggedKeys=Object.fromEntries(Object.entries(loggedKeys).filter(function(kv){
+      return kv[0].indexOf(pid)===-1;}));
+    showRsb("Removed "+pid,"rsb-ok");
+  }).catch(function(e){showRsb("Error: "+e.message,"rsb-err");});}
+
+// ═══════════════════════════════════════════════════
+// STATUS
+// ═══════════════════════════════════════════════════
+function updateStatus(s){
+  var d=function(id,c){var e=document.getElementById(id);if(e)e.className="sdot "+c;};
+  d("sd-srv","dok");d("sd-mdl",s.model_ok?"dok":"dwarn");
+  var ml=document.getElementById("sl-mdl");if(ml)ml.textContent=s.model_ok?"LSTM":"rule-based";
+  var pl=document.getElementById("sl-poll");if(pl)pl.textContent="polled "+(s.last_poll||"—");
+  var pc=document.getElementById("sl-pts");if(pc)pc.textContent=(s.patient_count||0)+" patients";
+  var mb=document.getElementById("mbadge");
+  if(mb){mb.textContent=s.model_ok?"LSTM":"rule-based";mb.style.color=s.model_ok?"#00ff88":"#ffcc00";}}
+
+// ═══════════════════════════════════════════════════
+// MAIN POLL
+// ═══════════════════════════════════════════════════
+async function poll(){
+  try{
+    var r=await fetch(API+"/api/patients");
+    if(!r.ok)throw new Error("HTTP "+r.status);
+    var d=await r.json();
+    allPatients=d.patients||[];
+
+    // Feed ECG beats every second
+    allPatients.forEach(function(p){
+      if(!ecgBuf[p.pid]){ecgBuf[p.pid]=new Float32Array(ECG_LEN);ecgPhase[p.pid]=0;}
+      var hw=p.hr_waveform||[];
+      if(hw.length>0){var hr=hw[hw.length-1];
+        if(typeof hr==="number")ecgPhase[p.pid]=pushBeat(ecgBuf[p.pid],ecgPhase[p.pid],hr);}
+    });
+
+    // Rebuild cards if patient list changed
+    var curPids=allPatients.map(function(p){return p.pid;});
+    var sameList=curPids.length===renderedPids.length&&
+      curPids.every(function(pid){return renderedPids.indexOf(pid)!==-1;});
+    if(!sameList){buildCards(allPatients);renderedPids=curPids.slice();}
+    else updateCards(allPatients);
+
+    // Update detail page if open
+    if(currentPid)updateDetailPage();
+
+    // Events + log
+    addEvents(allPatients);
+    renderLog();
+
+    // Banner + sound
+    updateBanner(allPatients);
+
+    // Status every 10s
+    statusCnt++;
+    if(statusCnt>=10){statusCnt=0;
+      try{var r2=await fetch(API+"/api/status");if(r2.ok)updateStatus(await r2.json());}catch(e){}}
+
+  }catch(e){
+    console.warn("Poll:",e);
+    document.getElementById("sd-srv").className="sdot derr";
+    document.getElementById("mbadge").textContent="offline";
+    document.getElementById("mbadge").style.color="#ff4040";
+    if(renderedPids.length===0)
+      document.getElementById("cards-grid").innerHTML=
+        "<div style='color:#ff4040;padding:16px;font-family:var(--mono);font-size:.76rem;'>"+
+        "Server offline — run: uvicorn fastapi_server:app --host 0.0.0.0 --port 5000</div>";}}
+
+// ═══════════════════════════════════════════════════
+// BOOT
+// ═══════════════════════════════════════════════════
+requestAnimationFrame(animLoop);
+poll();
+setInterval(poll,REFRESH);
+window.addEventListener("resize",function(){
+  allPatients.forEach(function(p){
+    var wrap=document.getElementById("ecgw-"+p.pid);
+    var cv=ecgCv[p.pid];
+    if(cv&&wrap){cv.width=wrap.offsetWidth||300;cv.height=wrap.offsetHeight||54;}});
+  if(currentPid){
+    var wA=document.getElementById("d-ecg-a-wrap");
+    var wE=document.getElementById("d-ecg-e-wrap");
+    if(detCvA&&wA){detCvA.width=wA.offsetWidth||500;detCvA.height=wA.offsetHeight||130;}
+    if(detCvE&&wE){detCvE.width=wE.offsetWidth||500;detCvE.height=wE.offsetHeight||130;}
+  }});
+</script>
+</body>
+</html>

@@ -1,0 +1,24 @@
+# Data
+data/
+artifacts/
+
+# Models
+*.pkl
+*.h5
+
+# Logs
+*.log
+
+# Python
+__pycache__/
+.vscode/
+*.pyc
+
+# Env
+.env
+venv/
+
+# Model
+*.ipynb
+*.png
+

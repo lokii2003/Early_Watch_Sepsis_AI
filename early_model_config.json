@@ -1,0 +1,21 @@
+{
+  "model_file": "early_sepsis_lstm_model.h5",
+  "scaler_file": "early_sepsis_scaler.pkl",
+  "feature_cols": [
+    "heart_rate_bpm",
+    "systolic_bp_mmhg",
+    "diastolic_bp_mmhg",
+    "resp._rate_br_min",
+    "temp_c",
+    "spo2_%",
+    "wbc_103_\u00b5l",
+    "lactate_mmol_l",
+    "ecg_mv"
+  ],
+  "sequence_length": 30,
+  "horizon": 30,
+  "threshold": 0.8056,
+  "auc_roc": 1.0,
+  "sensitivity": 1.0,
+  "specificity": 0.9992
+}
