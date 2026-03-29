@@ -8,7 +8,7 @@ Install:
     pip install fastapi uvicorn numpy pandas joblib scikit-learn openpyxl
 
 Run:
-    python -m uvicorn fastapi_server:app --host 0.0.0.0 --port 5000 --reload
+    python -m uvicorn fastapi_server:app --host 0.0.0.0 --port 10000 --reload
 
 Endpoints:
     GET  /                        serve index.html
@@ -43,7 +43,7 @@ from pydantic import BaseModel
 # ── CONFIG ─────────────────────────────────────────────────────────
 DATA_DIR      = "live_data"
 CONFIG_FILE   = "patients_config.json"
-PORT          = int(os.environ.get("PORT", 5000))
+PORT          = int(os.environ.get("PORT", 10000))
 POLL_SEC      = 10
 SEQ_LEN       = 30
 THRESHOLD     = 0.50
