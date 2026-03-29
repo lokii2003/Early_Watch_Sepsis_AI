@@ -571,6 +571,8 @@ var statusCnt     = 0;
 
 async function fetchPatients() {
   try {
+
+    console.log("JS LOADED");
     console.log("Fetching from:", API);
 
     const res = await fetch(API + "/api/patients");
