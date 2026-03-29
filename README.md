@@ -9,7 +9,7 @@
 
 | | Link |
 |---|---|
-| 🔴 Early Sepsis Alert System | (https://early-watch-icu-sepsis-ai-nwuo.onrender.com/)
+| 🔴 Early Sepsis Alert System | https://early-watch-icu-sepsis-ai-nwuo.onrender.com/
 | 
 
 ---
